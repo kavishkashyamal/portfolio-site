@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<!-- Add 'dark' class here for dark mode -->
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Python Learning Portfolio</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* --- CSS Variables for Theming (Light & Dark Mode) --- */
+        :root {
+            --bg-color: #f8fafc;
+            --card-bg-color: #ffffff;
+            --text-color: #1f2937;
+            --text-muted-color: #4b5563;
+            --gradient-start: #334155;
+            --gradient-end: #6366f1;
+            --hero-gradient-1: #e0c3fc;
+            --hero-gradient-2: #8ec5fc;
+            --timeline-line-color: #93c5fd;
+            --timeline-border-color: #93c5fd;
+            --timeline-upcoming-border-color: #d1d5db; /* NEW: Color for upcoming items */
+            --preloader-bg: #f8fafc;
+            --spinner-color: #6366f1;
+        }
+
+        html.dark {
+            --bg-color: #0f172a;
+            --card-bg-color: #1e293b;
+            --text-color: #e2e8f0;
+            --text-muted-color: #94a3b8;
+            --gradient-start: #e0c3fc;
+            --gradient-end: #8ec5fc;
+            --hero-gradient-1: #0f172a;
+            --hero-gradient-2: #1e293b;
+            --timeline-line-color: #3b82f6;
+            --timeline-border-color: #3b82f6;
+            --timeline-upcoming-border-color: #4b5563; /* NEW: Dark mode color for upcoming items */
+            --preloader-bg: #0f172a;
+            --spinner-color: #818cf8;
+        }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- Loading Animation (Preloader) --- */
+        #preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--preloader-bg);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: opacity 0.5s ease-out, visibility 0.5s ease-out;
+        }
+        #preloader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        .spinner {
+            width: 56px;
+            height: 56px;
+            border: 5px solid var(--spinner-color);
+            border-bottom-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            box-sizing: border-box;
+            animation: rotation 1s linear infinite;
+        }
+        @keyframes rotation {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* --- Typing Effect Cursor --- */
+        #typing-text::after {
+            content: '|';
+            animation: blink 1s step-end infinite;
+            color: var(--gradient-end);
+        }
+        @keyframes blink {
+            from, to { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        /* --- Sliding Underline for Menu --- */
+        #nav-links {
+            position: relative;
+        }
+        #nav-underline {
+            position: absolute;
+            bottom: -8px;
+            left: 0;
+            height: 3px;
+            background-color: var(--gradient-end);
+            border-radius: 2px;
+            transition: left 0.3s ease, width 0.3s ease;
+        }
+        
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        .hero-content { position: relative; z-index: 2; }
+        .animated-gradient {
+            position: relative;
+            overflow: hidden;
+            background: linear-gradient(-45deg, var(--hero-gradient-1), var(--hero-gradient-2));
+            background-size: 200% 200%;
+            animation: gradientBG 10s ease infinite;
+        }
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .gradient-text {
+            background: -webkit-linear-gradient(45deg, var(--gradient-start), var(--gradient-end));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .frosted-glass {
+            background-color: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        html.dark .frosted-glass {
+            background-color: rgba(15, 23, 42, 0.5);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .animate-on-scroll {
+            opacity: 0;
+            transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+        }
+        .animate-on-scroll.fade-in-up { transform: translateY(30px); }
+        .animate-on-scroll.is-visible { opacity: 1; transform: translateY(0) translateX(0); }
+        .timeline-left.animate-on-scroll { transform: translateX(-100px); }
+        .timeline-right.animate-on-scroll { transform: translateX(100px); }
+        .timeline-container { position: relative; max-width: 1000px; margin: 0 auto; }
+        .timeline-container::after {
+            content: '';
+            position: absolute;
+            width: 4px;
+            background-color: var(--timeline-line-color);
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            margin-left: -2px;
+            border-radius: 2px;
+            transform: scaleY(0);
+            transform-origin: top;
+            transition: transform 0.8s ease-out;
+        }
+        .timeline-container.is-visible::after { transform: scaleY(1); }
+        .timeline-item { padding: 10px 40px; position: relative; width: 50%; }
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 24px;
+            height: 24px;
+            right: -12px;
+            background-color: var(--card-bg-color);
+            border: 4px solid var(--timeline-border-color);
+            top: 28px;
+            border-radius: 50%;
+            z-index: 1;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+        }
+        /* NEW: Style for upcoming timeline item dots */
+        .timeline-item.is-upcoming::after {
+            border-color: var(--timeline-upcoming-border-color);
+        }
+        .timeline-item:hover::after { transform: scale(1.2); }
+        .timeline-left { left: 0; }
+        .timeline-right { left: 50%; }
+        .timeline-right::after { left: -12px; }
+        .timeline-content {
+            padding: 20px;
+            background-color: var(--card-bg-color);
+            position: relative;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            overflow: hidden;
+        }
+        .timeline-content:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+        }
+        .timeline-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(99, 102, 241, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .timeline-content:hover .timeline-overlay { opacity: 1; }
+        .timeline-overlay svg {
+            width: 48px;
+            height: 48px;
+            color: white;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+        .timeline-content:hover .timeline-overlay svg { transform: scale(1); }
+        
+        #footer-rocket {
+            animation: fly 4s ease-in-out infinite;
+        }
+        @keyframes fly {
+            0% { transform: translateY(0) rotate(-5deg); }
+            50% { transform: translateY(-15px) rotate(5deg); }
+            100% { transform: translateY(0) rotate(-5deg); }
+        }
+
+        @media screen and (max-width: 768px) {
+            .timeline-container::after { left: 31px; }
+            .timeline-item { width: 100%; padding-left: 70px; padding-right: 25px; }
+            .timeline-item::after { left: 19px; }
+            .timeline-right { left: 0%; }
+            .timeline-left.animate-on-scroll, .timeline-right.animate-on-scroll { transform: translateX(50px); }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- Preloader -->
+    <div id="preloader">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Header Section -->
+    <header class="frosted-glass sticky top-0 z-50 transition-all duration-300">
+        <nav class="container mx-auto px-6 py-3 flex justify-between items-center">
+            <div class="text-2xl font-bold" style="color: var(--text-color);">My Portfolio</div>
+            <div class="flex items-center">
+                <div id="nav-links" class="hidden md:flex space-x-8 mr-6">
+                    <a href="#about" class="nav-item hover:text-indigo-500 transition duration-300 font-medium" style="color: var(--text-muted-color);">About</a>
+                    <a href="#learning-path" class="nav-item hover:text-indigo-500 transition duration-300 font-medium" style="color: var(--text-muted-color);">Learning Path</a>
+                    <a href="#skills" class="nav-item hover:text-indigo-500 transition duration-300 font-medium" style="color: var(--text-muted-color);">Skills</a>
+                    <a href="#contact" class="nav-item hover:text-indigo-500 transition duration-300 font-medium" style="color: var(--text-muted-color);">Contact</a>
+                </div>
+                <button id="theme-toggle" class="w-10 h-10 rounded-full flex items-center justify-center focus:outline-none text-yellow-500 dark:text-indigo-400 transition-transform duration-300 hover:scale-110">
+                    <svg id="theme-toggle-dark-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                    <svg id="theme-toggle-light-icon" class="w-6 h-6 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+                </button>
+                <button id="mobile-menu-button" class="md:hidden flex items-center ml-4">
+                     <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="color: var(--text-color);"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </button>
+            </div>
+        </nav>
+        <div id="mobile-menu" class="hidden md:hidden bg-white/80 dark:bg-slate-800/80">
+            <a href="#about" class="block py-2 px-4 text-sm hover:bg-gray-200 dark:hover:bg-slate-700" style="color: var(--text-muted-color);">About</a>
+            <a href="#learning-path" class="block py-2 px-4 text-sm hover:bg-gray-200 dark:hover:bg-slate-700" style="color: var(--text-muted-color);">Learning Path</a>
+            <a href="#skills" class="block py-2 px-4 text-sm hover:bg-gray-200 dark:hover:bg-slate-700" style="color: var(--text-muted-color);">Skills</a>
+            <a href="#contact" class="block py-2 px-4 text-sm hover:bg-gray-200 dark:hover:bg-slate-700" style="color: var(--text-muted-color);">Contact</a>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-6">
+
+        <!-- Hero Section -->
+        <section class="text-center py-20 md:py-32 animated-gradient rounded-b-3xl">
+            <canvas id="particle-canvas"></canvas>
+            <div class="hero-content">
+                <h1 id="typing-text" class="text-4xl md:text-6xl font-extrabold mb-4 gradient-text min-h-[80px] md:min-h-[96px]"></h1>
+                <p class="text-lg md:text-xl max-w-3xl mx-auto animate-on-scroll fade-in-up" style="color: var(--text-muted-color); transition-delay: 0.1s;">
+                    Welcome to my portfolio. I'm documenting my journey of learning Python, one concept at a time.
+                </p>
+            </div>
+        </section>
+
+        <!-- About Me Section -->
+        <section id="about" class="py-24">
+            <div class="max-w-4xl mx-auto p-8 md:p-12 rounded-2xl shadow-xl animate-on-scroll fade-in-up" style="background-color: var(--card-bg-color);">
+                <h2 class="text-3xl font-bold text-center mb-6 gradient-text">About Me</h2>
+                <p class="text-center leading-relaxed text-lg" style="color: var(--text-muted-color);">
+                    I started my programming journey with a curiosity for how things work. I chose Python because of its readability and versatility. I'm currently following the Python tutorial on W3Schools and building this portfolio to track my progress and solidify my understanding. My goal is to become proficient in Python and eventually build interesting and useful applications.
+                </p>
+            </div>
+        </section>
+
+        <!-- Learning Path Section -->
+        <section id="learning-path" class="py-16">
+            <h2 class="text-3xl font-bold text-center mb-20 animate-on-scroll fade-in-up gradient-text">My Learning Path</h2>
+            <div id="timeline" class="timeline-container">
+                <!-- Completed Items -->
+                <div class="timeline-item timeline-left animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Python Syntax</h3><p class="text-sm" style="color: var(--text-muted-color);">The foundational rules of the language.</p></div>
+                </div>
+                <div class="timeline-item timeline-right animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Variables & Data Types</h3><p class="text-sm" style="color: var(--text-muted-color);">Storing and classifying data.</p></div>
+                </div>
+                <div class="timeline-item timeline-left animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Data Structures</h3><p class="text-sm" style="color: var(--text-muted-color);">Lists, Tuples, Sets, & Dictionaries.</p></div>
+                </div>
+                <div class="timeline-item timeline-right animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Control Flow</h3><p class="text-sm" style="color: var(--text-muted-color);">Making decisions with If/Else & Loops.</p></div>
+                </div>
+                <div class="timeline-item timeline-left animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Functions & Lambdas</h3><p class="text-sm" style="color: var(--text-muted-color);">Creating reusable blocks of code.</p></div>
+                </div>
+                <div class="timeline-item timeline-right animate-on-scroll">
+                    <div class="timeline-content"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Classes & Inheritance</h3><p class="text-sm" style="color: var(--text-muted-color);">Object-Oriented Programming concepts.</p></div>
+                </div>
+                <div class="timeline-item timeline-left animate-on-scroll">
+                    <div class="timeline-content ring-2 ring-indigo-500"><div class="timeline-overlay"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-12 h-12"><path stroke-linecap="round" stroke-linejoin="round" d="M14.25 9.75L16.5 12l-2.25 2.25m-4.5 0L7.5 12l2.25-2.25M6 20.25h12A2.25 2.25 0 0020.25 18V5.75A2.25 2.25 0 0018 3.5H6A2.25 2.25 0 003.75 5.75v12.25A2.25 2.25 0 006 20.25z" /></svg></div><h3 class="font-bold text-lg mb-1">Try...Except</h3><p class="text-sm" style="color: var(--text-muted-color);">Handling errors gracefully.</p></div>
+                </div>
+
+                <!-- Upcoming Items -->
+                <div class="timeline-item timeline-right animate-on-scroll is-upcoming">
+                    <div class="timeline-content opacity-60"><h3 class="font-bold text-lg mb-1">User Input</h3><p class="text-sm" style="color: var(--text-muted-color);">Getting data from users.</p></div>
+                </div>
+                <div class="timeline-item timeline-left animate-on-scroll is-upcoming">
+                    <div class="timeline-content opacity-60"><h3 class="font-bold text-lg mb-1">String Formatting</h3><p class="text-sm" style="color: var(--text-muted-color);">Making strings dynamic and clean.</p></div>
+                </div>
+                <div class="timeline-item timeline-right animate-on-scroll is-upcoming">
+                    <div class="timeline-content opacity-60"><h3 class="font-bold text-lg mb-1">File Handling</h3><p class="text-sm" style="color: var(--text-muted-color);">Reading from and writing to files.</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Skills Section -->
+        <section id="skills" class="py-16 rounded-2xl my-12" style="background-color: var(--card-bg-color);">
+            <div class="max-w-4xl mx-auto animate-on-scroll fade-in-up">
+                <h2 class="text-3xl font-bold text-center mb-12 gradient-text">Core Concepts I've Learned</h2>
+                <div class="flex flex-wrap justify-center gap-3">
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Data Structures</span>
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Control Flow</span>
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Functions & Lambdas</span>
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Object-Oriented Basics</span>
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Modules & Packages</span>
+                    <span class="bg-indigo-100 dark:bg-indigo-900/50 text-indigo-800 dark:text-indigo-300 text-sm font-medium me-2 px-3 py-1.5 rounded-full shadow-sm">Error Handling</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Contact Section -->
+        <section id="contact" class="py-24">
+            <div class="max-w-xl mx-auto text-center animate-on-scroll fade-in-up">
+                <h2 class="text-3xl font-bold mb-6 gradient-text">Get In Touch</h2>
+                <p class="mb-8 text-lg" style="color: var(--text-muted-color);">
+                    I'm always open to connecting with fellow learners and developers. Feel free to reach out!
+                </p>
+                <a href="mailto:youremail@example.com" class="bg-indigo-600 text-white font-bold py-4 px-8 rounded-lg hover:bg-indigo-700 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-1 inline-block">
+                    Say Hello
+                </a>
+                <div class="mt-12 flex justify-center space-x-6">
+                    <a href="#" aria-label="Github" class="text-gray-400 hover:text-indigo-500 transition-transform duration-300 hover:scale-110"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.49.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" /></svg></a>
+                    <a href="#" aria-label="LinkedIn" class="text-gray-400 hover:text-indigo-500 transition-transform duration-300 hover:scale-110"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.714c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75 1.75.784 1.75 1.75-.784 1.75-1.75 1.75zm13.5 12.714h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg></a>
+                    <a href="#" aria-label="Twitter" class="text-gray-400 hover:text-indigo-500 transition-transform duration-300 hover:scale-110"><svg class="w-8 h-8" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg></a>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12" style="background-color: var(--card-bg-color);">
+        <div class="container mx-auto px-6 py-8 text-center" style="color: var(--text-muted-color);">
+            <div id="footer-rocket" class="w-12 h-12 mx-auto mb-4">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M9.75 21.75H14.25C17.25 21.75 19.5 19.5 19.5 16.5V12C19.5 9 17.25 6.75 14.25 6.75H9.75C6.75 6.75 4.5 9 4.5 12V16.5C4.5 19.5 6.75 21.75 9.75 21.75Z" stroke="var(--text-muted-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 6.75V3L14.25 2.25" stroke="var(--text-muted-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M12 6.75V3L9.75 2.25" stroke="var(--text-muted-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path><path d="M16.5 14.25C16.5 15.4926 15.4926 16.5 14.25 16.5C13.0074 16.5 12 15.4926 12 14.25C12 13.0074 13.0074 12 14.25 12C15.4926 12 16.5 13.0074 16.5 14.25Z" stroke="var(--text-muted-color)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+            </div>
+            <p>&copy; 2024 Your Name. All Rights Reserved.</p>
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+
+            const preloader = document.getElementById('preloader');
+            window.addEventListener('load', () => {
+                preloader.classList.add('hidden');
+            });
+            
+            const typingTextElement = document.getElementById('typing-text');
+            const textToType = "Hello, I'm a Python Learner!";
+            let charIndex = 0;
+            function type() {
+                if (typingTextElement && charIndex < textToType.length) {
+                    typingTextElement.textContent += textToType.charAt(charIndex);
+                    charIndex++;
+                    setTimeout(type, 100);
+                }
+            }
+            setTimeout(type, 500);
+
+            const navLinksContainer = document.getElementById('nav-links');
+            const navItems = document.querySelectorAll('.nav-item');
+            if (navLinksContainer) {
+                const underline = document.createElement('div');
+                underline.id = 'nav-underline';
+                navLinksContainer.appendChild(underline);
+
+                navItems.forEach(item => {
+                    item.addEventListener('mouseenter', () => {
+                        underline.style.left = `${item.offsetLeft}px`;
+                        underline.style.width = `${item.offsetWidth}px`;
+                    });
+                });
+
+                navLinksContainer.addEventListener('mouseleave', () => {
+                    underline.style.width = '0px';
+                });
+            }
+
+            // --- FIXED: Particle Background Script ---
+            const canvas = document.getElementById('particle-canvas');
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                canvas.width = canvas.offsetWidth;
+                canvas.height = canvas.offsetHeight;
+                let particlesArray;
+                const mouse = { x: null, y: null, radius: (canvas.height/110) * (canvas.width/110) };
+                
+                window.addEventListener('mousemove', function(event) {
+                    let rect = canvas.getBoundingClientRect();
+                    mouse.x = event.clientX - rect.left;
+                    mouse.y = event.clientY - rect.top;
+                });
+                
+                canvas.addEventListener('mouseout', function() {
+                    mouse.x = undefined;
+                    mouse.y = undefined;
+                });
+
+                // FIXED: Particle class is now defined in the correct scope
+                class Particle {
+                    constructor(x, y, directionX, directionY, size) {
+                        this.x = x;
+                        this.y = y;
+                        this.directionX = directionX;
+                        this.directionY = directionY;
+                        this.size = size;
+                    }
+                    draw() {
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2, false);
+                        ctx.fillStyle = document.documentElement.classList.contains('dark') ? 'rgba(147, 197, 253, 0.5)' : 'rgba(255, 255, 255, 0.5)';
+                        ctx.fill();
+                    }
+                    update() {
+                        if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                        if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                        
+                        let dx = mouse.x - this.x;
+                        let dy = mouse.y - this.y;
+                        let distance = Math.sqrt(dx*dx + dy*dy);
+                        if (distance < mouse.radius + this.size) {
+                            if (mouse.x < this.x && this.x < canvas.width - this.size * 10) this.x += 5;
+                            if (mouse.x > this.x && this.x > this.size * 10) this.x -= 5;
+                            if (mouse.y < this.y && this.y < canvas.height - this.size * 10) this.y += 5;
+                            if (mouse.y > this.y && this.y > this.size * 10) this.y -= 5;
+                        }
+                        this.x += this.directionX;
+                        this.y += this.directionY;
+                        this.draw();
+                    }
+                }
+                
+                // FIXED: initParticles function is now defined in the correct scope
+                function initParticles() {
+                    particlesArray = [];
+                    let numberOfParticles = (canvas.height * canvas.width) / 9000;
+                    for (let i = 0; i < numberOfParticles; i++) {
+                        let size = (Math.random() * 2) + 1;
+                        let x = (Math.random() * ((canvas.width - size * 2) - (size * 2)) + size * 2);
+                        let y = (Math.random() * ((canvas.height - size * 2) - (size * 2)) + size * 2);
+                        let directionX = (Math.random() * .4) - .2;
+                        let directionY = (Math.random() * .4) - .2;
+                        particlesArray.push(new Particle(x, y, directionX, directionY, size));
+                    }
+                }
+
+                // FIXED: animateParticles function is now defined in the correct scope
+                function animateParticles() {
+                    if(!particlesArray) return;
+                    requestAnimationFrame(animateParticles);
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    for (let i = 0; i < particlesArray.length; i++) {
+                        particlesArray[i].update();
+                    }
+                }
+                
+                window.addEventListener('resize', () => {
+                    canvas.width = canvas.offsetWidth;
+                    canvas.height = canvas.offsetHeight;
+                    mouse.radius = (canvas.height/110) * (canvas.width/110);
+                    initParticles();
+                });
+                
+                // Add listener for theme changes specifically for particles
+                const themeToggleBtn = document.getElementById('theme-toggle');
+                themeToggleBtn.addEventListener('click', function() {
+                    // Use a small timeout to ensure theme variables are updated before redrawing
+                    setTimeout(initParticles, 50);
+                });
+                
+                initParticles();
+                animateParticles();
+            }
+
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const themeToggleDarkIcon = document.getElementById('theme-toggle-dark-icon');
+            const themeToggleLightIcon = document.getElementById('theme-toggle-light-icon');
+
+            if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                themeToggleLightIcon.classList.remove('hidden');
+                document.documentElement.classList.add('dark');
+            } else {
+                themeToggleDarkIcon.classList.remove('hidden');
+                document.documentElement.classList.remove('dark');
+            }
+
+            themeToggleBtn.addEventListener('click', function() {
+                themeToggleDarkIcon.classList.toggle('hidden');
+                themeToggleLightIcon.classList.toggle('hidden');
+                if (localStorage.getItem('color-theme')) {
+                    if (localStorage.getItem('color-theme') === 'light') {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('color-theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('color-theme', 'light');
+                    }
+                } else {
+                    if (document.documentElement.classList.contains('dark')) {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('color-theme', 'light');
+                    } else {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('color-theme', 'dark');
+                    }
+                }
+                // NOTE: The particle re-initialization is now handled by a separate listener inside the if(canvas) block
+            });
+
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const mobileMenu = document.getElementById('mobile-menu');
+            mobileMenuButton.addEventListener('click', () => {
+                mobileMenu.classList.toggle('hidden');
+            });
+
+            const animatedElements = document.querySelectorAll('.animate-on-scroll');
+            const timelineContainer = document.querySelector('.timeline-container');
+
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.15 });
+            
+            animatedElements.forEach(element => { observer.observe(element); });
+            
+            const timelineObserver = new IntersectionObserver((entries) => {
+                 entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        timelineObserver.unobserve(entry.target);
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            if(timelineContainer) { timelineObserver.observe(timelineContainer); }
+        });
+    </script>
+</body>
+</html>
