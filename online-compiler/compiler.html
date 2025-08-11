@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Full-Screen Python Runner</title>
-    <meta name="description" content="A feature-rich, full-screen, in-browser Python code runner using Pyodide and CodeMirror.">
+    <meta name="description" content="A feature-rich, full-screen, in-browser Python code runner with package installation and interactive input.">
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -53,7 +53,6 @@
             font-family: 'Inter', sans-serif;
         }
 
-        /* --- CodeMirror Styles --- */
         .CodeMirror {
             border: 1px solid var(--border-color);
             border-radius: 8px;
@@ -62,7 +61,6 @@
             height: 100%;
         }
         
-        /* --- Output Area Styles --- */
         #output-area {
             background-color: var(--bg-secondary);
             border: 1px solid var(--border-color);
@@ -76,35 +74,47 @@
             overflow-y: auto;
         }
         
-        /* Custom select dropdown styles */
-        .custom-select {
+        .custom-select, #package-input {
             background-color: var(--bg-secondary);
             border: 1px solid var(--border-color);
             color: var(--text-primary);
+        }
+
+        #input-prompt {
+            background-color: rgba(0,0,0,0.5);
+            backdrop-filter: blur(4px);
         }
     </style>
 </head>
 <body class="h-full overflow-hidden">
 
+    <div id="input-prompt" class="fixed inset-0 z-50 flex items-center justify-center hidden">
+        <div class="bg-white dark:bg-slate-800 p-6 rounded-lg shadow-xl w-full max-w-md">
+            <label id="input-prompt-label" for="input-prompt-field" class="block mb-2 font-medium text-slate-800 dark:text-slate-200"></label>
+            <input type="text" id="input-prompt-field" class="w-full p-2 rounded-md border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <p class="text-xs text-slate-500 mt-2">Press Enter to submit.</p>
+        </div>
+    </div>
+
     <div class="flex flex-col h-screen">
         <!-- Header -->
         <header class="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-gray-200/50 dark:border-slate-800/50 backdrop-blur-md z-10">
             <div class="container mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center h-16">
-                    <div class="flex items-center space-x-4">
-                        <h1 class="text-xl font-bold text-slate-800 dark:text-slate-200">
-                            Python Runner
-                        </h1>
+                <div class="flex flex-wrap justify-between items-center h-auto md:h-16 py-2">
+                    <div class="flex items-center space-x-4 mb-2 md:mb-0">
+                        <h1 class="text-xl font-bold text-slate-800 dark:text-slate-200">Python Runner</h1>
                         <select id="example-snippets" class="custom-select text-sm rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                             <option value="">Load Example...</option>
                         </select>
                     </div>
+                    <div class="flex items-center space-x-2 mb-2 md:mb-0">
+                        <input type="text" id="package-input" placeholder="e.g. numpy" class="custom-select text-sm rounded-md p-2 w-32 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                        <button id="install-package-button" class="px-4 py-2 text-sm bg-green-600 text-white font-semibold rounded-lg shadow hover:bg-green-700 transition-colors disabled:bg-green-400 disabled:cursor-not-allowed">Install</button>
+                    </div>
                     <div class="flex items-center space-x-4">
                          <div id="runner-status" class="text-sm text-gray-500 dark:text-gray-400 hidden md:block">Initializing...</div>
                          <button id="layout-toggle" title="Toggle Layout" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors focus:outline-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                            </svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
                          </button>
                          <button id="theme-toggle" title="Toggle Theme" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors focus:outline-none">
                             <svg id="theme-toggle-dark-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
@@ -115,39 +125,27 @@
             </div>
         </header>
 
-        <!-- Main Content (Editor, Button, Output) -->
         <main id="main-container" class="flex-grow flex flex-col lg:flex-row p-4 gap-4 overflow-hidden">
-            <!-- Left Side: Editor and Action Buttons -->
             <div id="editor-pane" class="flex flex-col w-full lg:w-1/2 h-1/2 lg:h-full gap-4">
                 <div class="flex-grow h-4/5 relative">
                     <textarea id="code-editor"></textarea>
                     <button id="copy-code-button" title="Copy Code" class="absolute top-2 right-2 p-2 rounded-full bg-gray-500/30 hover:bg-gray-500/50 backdrop-blur-sm transition-colors focus:outline-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                           <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                        </svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                     </button>
                 </div>
                 <button id="run-button" class="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled>
-                    <svg id="run-button-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
-                    </svg>
-                    <svg id="run-button-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
+                    <svg id="run-button-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" /></svg>
+                    <svg id="run-button-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                     <span id="run-button-text">Run Code</span>
                 </button>
             </div>
 
-            <!-- Right Side: Output and Action Buttons -->
             <div id="output-pane" class="flex flex-col w-full lg:w-1/2 h-1/2 lg:h-full gap-4">
                 <div class="flex-grow h-4/5 relative">
                      <pre id="output-area" class="text-sm"></pre>
                 </div>
                 <button id="clear-output-button" class="w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow hover:bg-red-700 transition-all duration-300 flex items-center justify-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     <span>Clear Output</span>
                 </button>
             </div>
@@ -157,37 +155,45 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // --- Element References ---
-            const themeToggleBtn = document.getElementById('theme-toggle');
-            const darkIcon = document.getElementById('theme-toggle-dark-icon');
-            const lightIcon = document.getElementById('theme-toggle-light-icon');
-            const codeEditorElem = document.getElementById('code-editor');
-            const runButton = document.getElementById('run-button');
-            const runButtonIcon = document.getElementById('run-button-icon');
-            const runButtonSpinner = document.getElementById('run-button-spinner');
-            const runButtonText = document.getElementById('run-button-text');
-            const outputArea = document.getElementById('output-area');
-            const runnerStatus = document.getElementById('runner-status');
-            const clearOutputBtn = document.getElementById('clear-output-button');
-            const copyCodeBtn = document.getElementById('copy-code-button');
-            const snippetsDropdown = document.getElementById('example-snippets');
-            const layoutToggleBtn = document.getElementById('layout-toggle');
-            const mainContainer = document.getElementById('main-container');
-            const editorPane = document.getElementById('editor-pane');
-            const outputPane = document.getElementById('output-pane');
+            const ui = {
+                themeToggle: document.getElementById('theme-toggle'),
+                darkIcon: document.getElementById('theme-toggle-dark-icon'),
+                lightIcon: document.getElementById('theme-toggle-light-icon'),
+                codeEditorElem: document.getElementById('code-editor'),
+                runButton: document.getElementById('run-button'),
+                runButtonIcon: document.getElementById('run-button-icon'),
+                runButtonSpinner: document.getElementById('run-button-spinner'),
+                runButtonText: document.getElementById('run-button-text'),
+                outputArea: document.getElementById('output-area'),
+                runnerStatus: document.getElementById('runner-status'),
+                clearOutputBtn: document.getElementById('clear-output-button'),
+                copyCodeBtn: document.getElementById('copy-code-button'),
+                snippetsDropdown: document.getElementById('example-snippets'),
+                layoutToggleBtn: document.getElementById('layout-toggle'),
+                mainContainer: document.getElementById('main-container'),
+                editorPane: document.getElementById('editor-pane'),
+                outputPane: document.getElementById('output-pane'),
+                packageInput: document.getElementById('package-input'),
+                installPackageBtn: document.getElementById('install-package-button'),
+                inputPrompt: document.getElementById('input-prompt'),
+                inputPromptLabel: document.getElementById('input-prompt-label'),
+                inputPromptField: document.getElementById('input-prompt-field'),
+            };
 
             // --- Code Snippets ---
             const codeSnippets = {
                 "Hello World": `print("Hello, World!")`,
+                "Interactive Input": `name = input("What's your name? ")\nprint(f"Hello, {name}!")`,
+                "Requests (Package)": `# Install 'requests' first!\nimport requests\n\nresponse = requests.get("https://httpbin.org/get")\nprint(response.json())`,
                 "Fibonacci Sequence": `def fibonacci(n):\n    a, b = 0, 1\n    while a < n:\n        print(a, end=' ')\n        a, b = b, a + b\n    print()\n\nfibonacci(1000)`,
-                "List Comprehension": `squares = [x**2 for x in range(10)]\nprint(squares)`,
                 "Matplotlib Plot": `# This may take a moment to load the first time.\nimport matplotlib.pyplot as plt\n\n# Data for plotting\nx = [1, 2, 3, 4, 5]\ny = [2, 3, 5, 7, 11]\n\n# Create the plot\nfig, ax = plt.subplots()\nax.plot(x, y, marker='o')\n\n# Add titles and labels\nax.set_title("A Simple Plot")\nax.set_xlabel("X-axis")\nax.set_ylabel("Y-axis")\n\n# Display the plot\nplt.show()`
             };
 
             // --- Theme Management ---
             const applyTheme = (theme) => {
                 document.documentElement.classList.toggle('dark', theme === 'dark');
-                lightIcon.classList.toggle('hidden', theme !== 'dark');
-                darkIcon.classList.toggle('hidden', theme === 'dark');
+                ui.lightIcon.classList.toggle('hidden', theme !== 'dark');
+                ui.darkIcon.classList.toggle('hidden', theme === 'dark');
                 if (window.codeEditor) {
                     window.codeEditor.setOption("theme", theme === 'dark' ? 'material-darker' : 'default');
                 }
@@ -195,38 +201,38 @@
 
             const currentTheme = localStorage.getItem('color-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             applyTheme(currentTheme);
-
-            themeToggleBtn.addEventListener('click', () => {
+            ui.themeToggle.addEventListener('click', () => {
                 const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
                 localStorage.setItem('color-theme', newTheme);
                 applyTheme(newTheme);
             });
 
             // --- CodeMirror Initialization ---
-            window.codeEditor = CodeMirror.fromTextArea(codeEditorElem, {
+            window.codeEditor = CodeMirror.fromTextArea(ui.codeEditorElem, {
                 mode: 'python',
                 theme: currentTheme === 'dark' ? 'material-darker' : 'default',
                 lineNumbers: true,
                 indentUnit: 4,
                 matchBrackets: true,
                 autoCloseBrackets: true,
+                extraKeys: {
+                    "Ctrl-Enter": () => ui.runButton.click(),
+                    "Cmd-Enter": () => ui.runButton.click(),
+                }
             });
             window.codeEditor.setValue(codeSnippets["Hello World"]);
 
-
             // --- Feature Initialization ---
-            // Populate snippets dropdown
-            for (const key in codeSnippets) {
+            Object.keys(codeSnippets).forEach(key => {
                 const option = document.createElement('option');
                 option.value = key;
                 option.textContent = key;
-                snippetsDropdown.appendChild(option);
-            }
+                ui.snippetsDropdown.appendChild(option);
+            });
             
-            // Event Listeners
-            clearOutputBtn.addEventListener('click', () => { outputArea.textContent = ''; });
+            ui.clearOutputBtn.addEventListener('click', () => { ui.outputArea.textContent = ''; });
             
-            copyCodeBtn.addEventListener('click', () => {
+            ui.copyCodeBtn.addEventListener('click', () => {
                 const code = window.codeEditor.getValue();
                 const tempTextArea = document.createElement('textarea');
                 tempTextArea.value = code;
@@ -234,72 +240,109 @@
                 tempTextArea.select();
                 try {
                     document.execCommand('copy');
-                    copyCodeBtn.title = "Copied!";
+                    ui.copyCodeBtn.title = "Copied!";
                 } catch (err) {
-                    copyCodeBtn.title = "Failed to copy";
-                    console.error('Fallback: Oops, unable to copy', err);
+                    ui.copyCodeBtn.title = "Failed to copy";
                 }
                 document.body.removeChild(tempTextArea);
-                setTimeout(() => { copyCodeBtn.title = "Copy Code"; }, 2000);
+                setTimeout(() => { ui.copyCodeBtn.title = "Copy Code"; }, 2000);
             });
 
-            snippetsDropdown.addEventListener('change', (e) => {
+            ui.snippetsDropdown.addEventListener('change', (e) => {
                 const selectedKey = e.target.value;
                 if (codeSnippets[selectedKey]) {
                     window.codeEditor.setValue(codeSnippets[selectedKey]);
                 }
             });
 
-            layoutToggleBtn.addEventListener('click', () => {
-                mainContainer.classList.toggle('lg:flex-row');
-                mainContainer.classList.toggle('flex-col');
-                editorPane.classList.toggle('lg:w-1/2');
-                editorPane.classList.toggle('h-1/2');
-                editorPane.classList.toggle('lg:h-full');
-                outputPane.classList.toggle('lg:w-1/2');
-                outputPane.classList.toggle('h-1/2');
-                outputPane.classList.toggle('lg:h-full');
+            ui.layoutToggleBtn.addEventListener('click', () => {
+                ui.mainContainer.classList.toggle('lg:flex-row');
+                ui.mainContainer.classList.toggle('flex-col');
+                ui.editorPane.classList.toggle('lg:w-1/2');
+                ui.editorPane.classList.toggle('h-1/2');
+                ui.editorPane.classList.toggle('lg:h-full');
+                ui.outputPane.classList.toggle('lg:w-1/2');
+                ui.outputPane.classList.toggle('h-1/2');
+                ui.outputPane.classList.toggle('lg:h-full');
             });
 
+            // --- Interactive Input Handling ---
+            let resolveInput;
+            const custom_input = (prompt_text) => {
+                ui.inputPromptLabel.textContent = prompt_text;
+                ui.inputPrompt.classList.remove('hidden');
+                ui.inputPromptField.focus();
+                return new Promise((resolve) => {
+                    resolveInput = resolve;
+                });
+            };
+
+            ui.inputPromptField.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const value = ui.inputPromptField.value;
+                    ui.inputPromptField.value = '';
+                    ui.inputPrompt.classList.add('hidden');
+                    if (resolveInput) {
+                        resolveInput(value);
+                        resolveInput = null;
+                    }
+                }
+            });
 
             // --- Pyodide Initialization and Execution Logic ---
             async function main() {
-                runnerStatus.textContent = 'Initializing Python...';
+                ui.runnerStatus.textContent = 'Initializing Python...';
                 try {
                     let pyodide = await loadPyodide();
                     window.pyodide = pyodide;
-                    runnerStatus.textContent = 'Python Ready!';
-                    runButton.disabled = false;
+                    // Set the custom input function
+                    pyodide.globals.set('input', custom_input);
+                    ui.runnerStatus.textContent = 'Python Ready!';
+                    ui.runButton.disabled = false;
+                    ui.installPackageBtn.disabled = false;
                 } catch (error) {
-                    runnerStatus.textContent = 'Failed to load Python.';
-                    outputArea.textContent = `Error loading Pyodide: \n${error}`;
-                    console.error('Pyodide loading error:', error);
+                    ui.runnerStatus.textContent = 'Failed to load Python.';
+                    ui.outputArea.textContent = `Error loading Pyodide: \n${error}`;
                 }
             }
             main();
 
-            runButton.addEventListener('click', async () => {
-                let pyodide = window.pyodide;
-                if (!pyodide) {
-                    outputArea.textContent = 'Pyodide is not loaded yet. Please wait.';
+            ui.installPackageBtn.addEventListener('click', async () => {
+                const packageName = ui.packageInput.value.trim();
+                if (!packageName) return;
+
+                ui.runnerStatus.textContent = `Installing ${packageName}...`;
+                ui.installPackageBtn.disabled = true;
+                try {
+                    await window.pyodide.loadPackage(packageName);
+                    ui.runnerStatus.textContent = `${packageName} installed!`;
+                    ui.packageInput.value = '';
+                } catch (err) {
+                    ui.runnerStatus.textContent = `Failed to install ${packageName}.`;
+                    console.error(err);
+                } finally {
+                    ui.installPackageBtn.disabled = false;
+                }
+            });
+
+            ui.runButton.addEventListener('click', async () => {
+                if (!window.pyodide) {
+                    ui.outputArea.textContent = 'Pyodide is not loaded yet.';
                     return;
                 }
 
                 const code = window.codeEditor.getValue();
-                outputArea.innerHTML = ''; // Clear previous output, use innerHTML for plots
+                ui.outputArea.innerHTML = '';
                 
-                // UI updates for running state
-                runButton.disabled = true;
-                runButtonIcon.classList.add('hidden');
-                runButtonSpinner.classList.remove('hidden');
-                runButtonText.textContent = 'Executing...';
+                ui.runButton.disabled = true;
+                ui.runButtonIcon.classList.add('hidden');
+                ui.runButtonSpinner.classList.remove('hidden');
+                ui.runButtonText.textContent = 'Executing...';
                 const startTime = performance.now();
 
-                // Import Python modules
-                const sys = pyodide.pyimport('sys');
-                const io = pyodide.pyimport('io');
+                const sys = window.pyodide.pyimport('sys');
+                const io = window.pyodide.pyimport('io');
                 
-                // Backup and redirect streams
                 const stdout_backup = sys.stdout;
                 const stderr_backup = sys.stderr;
                 const stdout_capture = io.StringIO();
@@ -308,34 +351,29 @@
                 sys.stderr = stderr_capture;
 
                 try {
-                    // Special handling for matplotlib plots
                     if (code.includes("matplotlib")) {
-                        await pyodide.loadPackage("matplotlib");
+                        await window.pyodide.loadPackage("matplotlib");
                     }
 
-                    await pyodide.runPythonAsync(code);
+                    await window.pyodide.runPythonAsync(code);
                     
-                    const plt = pyodide.globals.get('plt');
+                    const plt = window.pyodide.globals.get('plt');
                     if (plt && plt.get_fignums().length > 0) {
-                        // This block now runs entirely in Python to avoid proxy issues
-                        pyodide.runPython(`
+                        window.pyodide.runPython(`
 import io, base64
 fig = plt.gcf()
 buf = io.BytesIO()
 fig.savefig(buf, format='png')
 buf.seek(0)
-# Store the base64 string in a global variable
 global image_base64_data
 image_base64_data = base64.b64encode(buf.read()).decode('utf-8')
                         `);
-                        // Retrieve the result from the Python global scope
-                        const image_base64 = pyodide.globals.get('image_base64_data');
+                        const image_base64 = window.pyodide.globals.get('image_base64_data');
                         const img = document.createElement('img');
                         img.src = 'data:image/png;base64,' + image_base64;
-                        outputArea.appendChild(img);
+                        ui.outputArea.appendChild(img);
                     }
                     
-                    // Get text output
                     const stdout = stdout_capture.getvalue();
                     const stderr = stderr_capture.getvalue();
                     let textOutput = '';
@@ -344,28 +382,27 @@ image_base64_data = base64.b64encode(buf.read()).decode('utf-8')
 
                     if (textOutput) {
                         const textNode = document.createTextNode(textOutput);
-                        outputArea.appendChild(textNode);
+                        ui.outputArea.appendChild(textNode);
                     }
                     
-                    if (!outputArea.innerHTML.trim()) {
-                        outputArea.textContent = '(No output)';
+                    if (!ui.outputArea.innerHTML.trim()) {
+                        ui.outputArea.textContent = '(No output)';
                     }
 
                 } catch (err) {
-                    outputArea.textContent += err.toString();
+                    ui.outputArea.textContent += err.toString();
                 } finally {
-                    // Restore streams and UI
                     sys.stdout = stdout_backup;
                     sys.stderr = stderr_backup;
                     
                     const endTime = performance.now();
                     const duration = ((endTime - startTime) / 1000).toFixed(2);
-                    runnerStatus.textContent = `Finished in ${duration}s`;
+                    ui.runnerStatus.textContent = `Finished in ${duration}s`;
 
-                    runButton.disabled = false;
-                    runButtonSpinner.classList.add('hidden');
-                    runButtonIcon.classList.remove('hidden');
-                    runButtonText.textContent = 'Run Code';
+                    ui.runButton.disabled = false;
+                    ui.runButtonSpinner.classList.add('hidden');
+                    ui.runButtonIcon.classList.remove('hidden');
+                    ui.runButtonText.textContent = 'Run Code';
                 }
             });
         });
