@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Full-Screen Python Runner</title>
+    <meta name="description" content="A feature-rich, full-screen, in-browser Python code runner using Pyodide and CodeMirror.">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code&display=swap" rel="stylesheet">
+    
+    <!-- Favicon (Emoji) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐍</text></svg>">
+    
+    <!-- CodeMirror for Code Editor -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/theme/material-darker.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/mode/python/python.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.5/addon/edit/closebrackets.min.js"></script>
+
+    <!-- Pyodide for running Python -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.21.3/full/pyodide.js"></script>
+
+    <style>
+        :root {
+            --bg-primary: #f8fafc;
+            --bg-secondary: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --accent-primary: #4f46e5;
+            --border-color: #e2e8f0;
+        }
+
+        html.dark {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-primary: #818cf8;
+            --border-color: #30363d;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* --- CodeMirror Styles --- */
+        .CodeMirror {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 16px;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            height: 100%;
+        }
+        
+        /* --- Output Area Styles --- */
+        #output-area {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: var(--text-primary);
+            height: 100%;
+            overflow-y: auto;
+        }
+        
+        /* Custom select dropdown styles */
+        .custom-select {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body class="h-full overflow-hidden">
+
+    <div class="flex flex-col h-screen">
+        <!-- Header -->
+        <header class="flex-shrink-0 bg-white/80 dark:bg-slate-900/80 border-b border-gray-200/50 dark:border-slate-800/50 backdrop-blur-md z-10">
+            <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex items-center space-x-4">
+                        <h1 class="text-xl font-bold text-slate-800 dark:text-slate-200">
+                            Python Runner
+                        </h1>
+                        <select id="example-snippets" class="custom-select text-sm rounded-md p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                            <option value="">Load Example...</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                         <div id="runner-status" class="text-sm text-gray-500 dark:text-gray-400 hidden md:block">Initializing...</div>
+                         <button id="layout-toggle" title="Toggle Layout" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors focus:outline-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                            </svg>
+                         </button>
+                         <button id="theme-toggle" title="Toggle Theme" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-slate-700 transition-colors focus:outline-none">
+                            <svg id="theme-toggle-dark-icon" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path></svg>
+                            <svg id="theme-toggle-light-icon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 20 20"><path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content (Editor, Button, Output) -->
+        <main id="main-container" class="flex-grow flex flex-col lg:flex-row p-4 gap-4 overflow-hidden">
+            <!-- Left Side: Editor and Action Buttons -->
+            <div id="editor-pane" class="flex flex-col w-full lg:w-1/2 h-1/2 lg:h-full gap-4">
+                <div class="flex-grow h-4/5 relative">
+                    <textarea id="code-editor"></textarea>
+                    <button id="copy-code-button" title="Copy Code" class="absolute top-2 right-2 p-2 rounded-full bg-gray-500/30 hover:bg-gray-500/50 backdrop-blur-sm transition-colors focus:outline-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                           <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </div>
+                <button id="run-button" class="w-full px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg shadow hover:bg-indigo-700 transition-all duration-300 flex items-center justify-center space-x-2 disabled:bg-indigo-400 disabled:cursor-not-allowed" disabled>
+                    <svg id="run-button-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+                    </svg>
+                    <svg id="run-button-spinner" class="animate-spin h-5 w-5 text-white hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <span id="run-button-text">Run Code</span>
+                </button>
+            </div>
+
+            <!-- Right Side: Output and Action Buttons -->
+            <div id="output-pane" class="flex flex-col w-full lg:w-1/2 h-1/2 lg:h-full gap-4">
+                <div class="flex-grow h-4/5 relative">
+                     <pre id="output-area" class="text-sm"></pre>
+                </div>
+                <button id="clear-output-button" class="w-full px-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow hover:bg-red-700 transition-all duration-300 flex items-center justify-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span>Clear Output</span>
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // --- Element References ---
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const darkIcon = document.getElementById('theme-toggle-dark-icon');
+            const lightIcon = document.getElementById('theme-toggle-light-icon');
+            const codeEditorElem = document.getElementById('code-editor');
+            const runButton = document.getElementById('run-button');
+            const runButtonIcon = document.getElementById('run-button-icon');
+            const runButtonSpinner = document.getElementById('run-button-spinner');
+            const runButtonText = document.getElementById('run-button-text');
+            const outputArea = document.getElementById('output-area');
+            const runnerStatus = document.getElementById('runner-status');
+            const clearOutputBtn = document.getElementById('clear-output-button');
+            const copyCodeBtn = document.getElementById('copy-code-button');
+            const snippetsDropdown = document.getElementById('example-snippets');
+            const layoutToggleBtn = document.getElementById('layout-toggle');
+            const mainContainer = document.getElementById('main-container');
+            const editorPane = document.getElementById('editor-pane');
+            const outputPane = document.getElementById('output-pane');
+
+            // --- Code Snippets ---
+            const codeSnippets = {
+                "Hello World": `print("Hello, World!")`,
+                "Fibonacci Sequence": `def fibonacci(n):\n    a, b = 0, 1\n    while a < n:\n        print(a, end=' ')\n        a, b = b, a + b\n    print()\n\nfibonacci(1000)`,
+                "List Comprehension": `squares = [x**2 for x in range(10)]\nprint(squares)`,
+                "Matplotlib Plot": `# This may take a moment to load the first time.\nimport matplotlib.pyplot as plt\n\n# Data for plotting\nx = [1, 2, 3, 4, 5]\ny = [2, 3, 5, 7, 11]\n\n# Create the plot\nfig, ax = plt.subplots()\nax.plot(x, y, marker='o')\n\n# Add titles and labels\nax.set_title("A Simple Plot")\nax.set_xlabel("X-axis")\nax.set_ylabel("Y-axis")\n\n# Display the plot\nplt.show()`
+            };
+
+            // --- Theme Management ---
+            const applyTheme = (theme) => {
+                document.documentElement.classList.toggle('dark', theme === 'dark');
+                lightIcon.classList.toggle('hidden', theme !== 'dark');
+                darkIcon.classList.toggle('hidden', theme === 'dark');
+                if (window.codeEditor) {
+                    window.codeEditor.setOption("theme", theme === 'dark' ? 'material-darker' : 'default');
+                }
+            };
+
+            const currentTheme = localStorage.getItem('color-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            applyTheme(currentTheme);
+
+            themeToggleBtn.addEventListener('click', () => {
+                const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
+                localStorage.setItem('color-theme', newTheme);
+                applyTheme(newTheme);
+            });
+
+            // --- CodeMirror Initialization ---
+            window.codeEditor = CodeMirror.fromTextArea(codeEditorElem, {
+                mode: 'python',
+                theme: currentTheme === 'dark' ? 'material-darker' : 'default',
+                lineNumbers: true,
+                indentUnit: 4,
+                matchBrackets: true,
+                autoCloseBrackets: true,
+            });
+            window.codeEditor.setValue(codeSnippets["Hello World"]);
+
+
+            // --- Feature Initialization ---
+            // Populate snippets dropdown
+            for (const key in codeSnippets) {
+                const option = document.createElement('option');
+                option.value = key;
+                option.textContent = key;
+                snippetsDropdown.appendChild(option);
+            }
+            
+            // Event Listeners
+            clearOutputBtn.addEventListener('click', () => { outputArea.textContent = ''; });
+            
+            copyCodeBtn.addEventListener('click', () => {
+                const code = window.codeEditor.getValue();
+                const tempTextArea = document.createElement('textarea');
+                tempTextArea.value = code;
+                document.body.appendChild(tempTextArea);
+                tempTextArea.select();
+                try {
+                    document.execCommand('copy');
+                    copyCodeBtn.title = "Copied!";
+                } catch (err) {
+                    copyCodeBtn.title = "Failed to copy";
+                    console.error('Fallback: Oops, unable to copy', err);
+                }
+                document.body.removeChild(tempTextArea);
+                setTimeout(() => { copyCodeBtn.title = "Copy Code"; }, 2000);
+            });
+
+            snippetsDropdown.addEventListener('change', (e) => {
+                const selectedKey = e.target.value;
+                if (codeSnippets[selectedKey]) {
+                    window.codeEditor.setValue(codeSnippets[selectedKey]);
+                }
+            });
+
+            layoutToggleBtn.addEventListener('click', () => {
+                mainContainer.classList.toggle('lg:flex-row');
+                mainContainer.classList.toggle('flex-col');
+                editorPane.classList.toggle('lg:w-1/2');
+                editorPane.classList.toggle('h-1/2');
+                editorPane.classList.toggle('lg:h-full');
+                outputPane.classList.toggle('lg:w-1/2');
+                outputPane.classList.toggle('h-1/2');
+                outputPane.classList.toggle('lg:h-full');
+            });
+
+
+            // --- Pyodide Initialization and Execution Logic ---
+            async function main() {
+                runnerStatus.textContent = 'Initializing Python...';
+                try {
+                    let pyodide = await loadPyodide();
+                    window.pyodide = pyodide;
+                    runnerStatus.textContent = 'Python Ready!';
+                    runButton.disabled = false;
+                } catch (error) {
+                    runnerStatus.textContent = 'Failed to load Python.';
+                    outputArea.textContent = `Error loading Pyodide: \n${error}`;
+                    console.error('Pyodide loading error:', error);
+                }
+            }
+            main();
+
+            runButton.addEventListener('click', async () => {
+                let pyodide = window.pyodide;
+                if (!pyodide) {
+                    outputArea.textContent = 'Pyodide is not loaded yet. Please wait.';
+                    return;
+                }
+
+                const code = window.codeEditor.getValue();
+                outputArea.innerHTML = ''; // Clear previous output, use innerHTML for plots
+                
+                // UI updates for running state
+                runButton.disabled = true;
+                runButtonIcon.classList.add('hidden');
+                runButtonSpinner.classList.remove('hidden');
+                runButtonText.textContent = 'Executing...';
+                const startTime = performance.now();
+
+                // Import Python modules
+                const sys = pyodide.pyimport('sys');
+                const io = pyodide.pyimport('io');
+                
+                // Backup and redirect streams
+                const stdout_backup = sys.stdout;
+                const stderr_backup = sys.stderr;
+                const stdout_capture = io.StringIO();
+                const stderr_capture = io.StringIO();
+                sys.stdout = stdout_capture;
+                sys.stderr = stderr_capture;
+
+                try {
+                    // Special handling for matplotlib plots
+                    if (code.includes("matplotlib")) {
+                        await pyodide.loadPackage("matplotlib");
+                    }
+
+                    await pyodide.runPythonAsync(code);
+                    
+                    const plt = pyodide.globals.get('plt');
+                    if (plt && plt.get_fignums().length > 0) {
+                        // This block now runs entirely in Python to avoid proxy issues
+                        pyodide.runPython(`
+import io, base64
+fig = plt.gcf()
+buf = io.BytesIO()
+fig.savefig(buf, format='png')
+buf.seek(0)
+# Store the base64 string in a global variable
+global image_base64_data
+image_base64_data = base64.b64encode(buf.read()).decode('utf-8')
+                        `);
+                        // Retrieve the result from the Python global scope
+                        const image_base64 = pyodide.globals.get('image_base64_data');
+                        const img = document.createElement('img');
+                        img.src = 'data:image/png;base64,' + image_base64;
+                        outputArea.appendChild(img);
+                    }
+                    
+                    // Get text output
+                    const stdout = stdout_capture.getvalue();
+                    const stderr = stderr_capture.getvalue();
+                    let textOutput = '';
+                    if (stdout) textOutput += stdout;
+                    if (stderr) textOutput += stderr;
+
+                    if (textOutput) {
+                        const textNode = document.createTextNode(textOutput);
+                        outputArea.appendChild(textNode);
+                    }
+                    
+                    if (!outputArea.innerHTML.trim()) {
+                        outputArea.textContent = '(No output)';
+                    }
+
+                } catch (err) {
+                    outputArea.textContent += err.toString();
+                } finally {
+                    // Restore streams and UI
+                    sys.stdout = stdout_backup;
+                    sys.stderr = stderr_backup;
+                    
+                    const endTime = performance.now();
+                    const duration = ((endTime - startTime) / 1000).toFixed(2);
+                    runnerStatus.textContent = `Finished in ${duration}s`;
+
+                    runButton.disabled = false;
+                    runButtonSpinner.classList.add('hidden');
+                    runButtonIcon.classList.remove('hidden');
+                    runButtonText.textContent = 'Run Code';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
